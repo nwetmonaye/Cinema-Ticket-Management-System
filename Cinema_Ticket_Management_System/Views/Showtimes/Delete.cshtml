@@ -1,0 +1,18 @@
+@model Showtime
+@{ ViewData["Title"] = "Delete showing"; }
+<a class="back-link" asp-action="Index">← Back to showtimes</a>
+<section class="panel confirm-panel">
+    <span class="confirm-icon"><svg class="icon"><use href="#i-alert"/></svg></span>
+    <h1>Remove this showing?</h1>
+    <p><strong style="color:var(--text)">@Model.Movie.Title</strong><br />@Display.Date(Model.StartsAtUtc) · @Model.Hall.Name</p>
+    @if (Model.Bookings.Count > 0)
+    {
+        <p>This showing has @Model.Bookings.Count booking(s), including cancelled ones. It must stay to keep the booking history.</p>
+        <a class="btn btn-primary" asp-controller="Bookings" asp-action="Index" asp-route-search="@Model.Movie.Title">View bookings</a>
+    }
+    else
+    {
+        <p>This permanently removes the showing. There are no bookings to keep.</p>
+        <form asp-action="Delete" asp-route-id="@Model.Id" method="post"><input name="version" type="hidden" value="@Model.Version" /><div class="form-actions"><button class="btn btn-danger" type="submit">Delete showing</button><a class="btn btn-ghost" asp-action="Index">Keep showing</a></div></form>
+    }
+</section>

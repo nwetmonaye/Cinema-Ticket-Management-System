@@ -1,0 +1,23 @@
+@model Booking
+@{ ViewData["Title"] = "Cancel booking"; }
+<a class="back-link" asp-action="Details" asp-route-id="@Model.Id">← Back to booking</a>
+<section class="panel confirm-panel">
+    <span class="confirm-icon"><svg class="icon"><use href="#i-alert"/></svg></span>
+    <h1>Cancel @Model.Reference?</h1>
+    <p><strong style="color:var(--text)">@Model.MovieTitle</strong><br />@Display.Date(Model.StartsAtUtc) · @Model.HallName · @Model.CustomerName</p>
+    @if (Model.Status == BookingStatus.Cancelled)
+    {
+        <p>This booking is already cancelled. Its seats have been released.</p>
+        <a class="btn btn-primary" asp-action="Details" asp-route-id="@Model.Id">View booking</a>
+    }
+    else if (Model.StartsAtUtc <= DateTime.UtcNow)
+    {
+        <p>This show has started. The booking can no longer be cancelled.</p>
+        <a class="btn btn-primary" asp-action="Details" asp-route-id="@Model.Id">View booking</a>
+    }
+    else
+    {
+        <p>This releases seats <strong style="color:var(--accent)">@string.Join(", ", Model.Seats.OrderBy(s => s.SeatLabel).Select(s => s.SeatLabel))</strong> and removes @Display.Money(Model.Total) from confirmed revenue. The ticket stays in history.</p>
+        <form asp-action="Cancel" asp-route-id="@Model.Id" method="post"><div class="form-actions"><button class="btn btn-danger" type="submit">Cancel & release seats</button><a class="btn btn-ghost" asp-action="Details" asp-route-id="@Model.Id">Keep booking</a></div></form>
+    }
+</section>

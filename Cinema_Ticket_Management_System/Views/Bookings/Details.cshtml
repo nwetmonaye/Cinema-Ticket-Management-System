@@ -1,0 +1,36 @@
+@model Booking
+@{ ViewData["Title"] = Model.Reference; var cancelled = Model.Status == BookingStatus.Cancelled; var past = Model.StartsAtUtc <= DateTime.UtcNow; var seats = Model.Seats.OrderBy(s => s.SeatLabel).ToList(); }
+<a class="back-link" asp-action="Index">← Back to bookings</a>
+<div class="page-head">
+    <div><span class="eyebrow">Booking @Model.Reference</span><h1>@(cancelled ? "Booking cancelled" : "Ticket confirmed")</h1><p>Booked @Display.Date(Model.CreatedAtUtc)</p></div>
+    <div class="page-actions"><button class="btn btn-ghost" type="button" data-print>Print ticket</button><a class="btn btn-primary" asp-controller="Showtimes" asp-action="Index">New booking</a></div>
+</div>
+<section class="ticket">
+    <div class="ticket-poster"><partial name="_Poster" model="Model.Showtime.Movie" /></div>
+    <div class="ticket-main">
+        <div class="ticket-heading"><span class="ticket-brand"><svg class="icon"><use href="#i-reel"/></svg>CINEDESK</span><span class="badge @(cancelled ? "badge-gray" : "badge-green")"><span class="badge-dot"></span>@Model.Status</span></div>
+        <h2>@Model.MovieTitle</h2>
+        <div class="ticket-grid">
+            <div><span>DATE & TIME</span><strong>@Display.Date(Model.StartsAtUtc)</strong></div>
+            <div><span>HALL</span><strong>@Model.HallName</strong></div>
+            <div><span>GUEST</span><strong>@Model.CustomerName</strong></div>
+            <div><span>SEATS (@seats.Count)</span><strong>@string.Join(", ", seats.Select(s => s.SeatLabel))</strong></div>
+        </div>
+        <div class="ticket-note">@(cancelled ? "This booking was cancelled and its seats were released." : "Please arrive 15 minutes before the show. Show this ticket at the entrance.")</div>
+    </div>
+    <div class="ticket-side">
+        <span class="eyebrow" style="margin:0">Booking reference</span>
+        <strong class="ticket-ref">@Model.Reference</strong>
+        <div class="barcode" aria-hidden="true"></div>
+        <div class="price-lines">@foreach (var seat in seats) { <div><span>Seat @seat.SeatLabel</span><strong>@Display.Money(seat.UnitPrice)</strong></div> }</div>
+        <div class="ticket-total"><span>@(cancelled ? "Original total" : "Total")</span><strong>@Display.Money(Model.Total)</strong></div>
+    </div>
+</section>
+@if (!cancelled && !past)
+{
+    <div class="danger-zone"><div><strong>Need to cancel?</strong><p>Cancel before the show starts to release the seats.</p></div><a class="btn btn-ghost" asp-action="Cancel" asp-route-id="@Model.Id">Cancel booking</a></div>
+}
+else if (!cancelled && past)
+{
+    <p class="muted" style="margin-top:18px">This show has started, so the booking can no longer be cancelled.</p>
+}

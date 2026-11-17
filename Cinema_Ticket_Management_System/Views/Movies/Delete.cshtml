@@ -1,0 +1,17 @@
+@model Movie
+@{ ViewData["Title"] = "Delete movie"; }
+<a class="back-link" asp-action="Index">← Back to movies</a>
+<section class="panel confirm-panel">
+    <span class="confirm-icon"><svg class="icon"><use href="#i-alert"/></svg></span>
+    <h1>Remove @Model.Title?</h1>
+    @if (Model.Showtimes.Count > 0)
+    {
+        <p>This movie has @Model.Showtimes.Count showing(s). Remove its unused showtimes first. Showtimes with booking history cannot be deleted.</p>
+        <a class="btn btn-primary" asp-controller="Showtimes" asp-action="Index" asp-route-movieId="@Model.Id" asp-route-scope="all">View showtimes</a>
+    }
+    else
+    {
+        <p>This permanently removes the movie from the catalogue. This cannot be undone.</p>
+        <form asp-action="Delete" asp-route-id="@Model.Id" method="post"><input type="hidden" name="version" value="@Model.Version" /><div class="form-actions"><button class="btn btn-danger" type="submit">Delete movie</button><a class="btn btn-ghost" asp-action="Index">Keep movie</a></div></form>
+    }
+</section>

@@ -1,0 +1,54 @@
+@model ShowtimesViewModel
+@{ ViewData["Title"] = "Showtimes"; var now = DateTime.UtcNow; }
+<div class="page-head">
+    <div><span class="eyebrow">Schedule</span><h1>Showtimes</h1><p>@Model.Showtimes.Count showing(s) · all times @Display.Zone.Id</p></div>
+    <div class="page-actions"><a class="btn btn-primary" asp-action="Create"><svg class="icon"><use href="#i-plus"/></svg>Add showing</a></div>
+</div>
+<form method="get" class="filter-bar" style="margin-bottom:22px">
+    <select name="movieId" aria-label="Filter by movie"><option value="">All movies</option>@foreach (var m in Model.Movies) { <option value="@m.Id" selected="@(m.Id == Model.MovieId)">@m.Title</option> }</select>
+    <input name="date" type="date" value="@Model.Date" aria-label="Filter by date" title="Pick a date to see that whole day" />
+    <select name="scope" aria-label="Filter by time" disabled="@(!string.IsNullOrEmpty(Model.Date))" title="@(string.IsNullOrEmpty(Model.Date) ? null : "Showing the whole selected day")"><option value="upcoming" selected="@(Model.Scope == "upcoming")">Upcoming</option><option value="all" selected="@(Model.Scope == "all")">All</option><option value="past" selected="@(Model.Scope == "past")">Past</option></select>
+    <button class="btn btn-ghost" type="submit">Filter</button>
+    <a class="text-link" asp-action="Index">Reset</a>
+</form>
+@if (Model.Showtimes.Count == 0)
+{
+    <section class="panel empty-state"><svg class="icon"><use href="#i-calendar"/></svg><h2>No showings in this view</h2><p>Try another date or movie, or add a showing.</p><a class="btn btn-primary" asp-action="Create">Add showing</a></section>
+}
+else
+{
+    @foreach (var day in Model.Showtimes.GroupBy(s => Display.Local(s.StartsAtUtc).Date))
+    {
+        <section class="panel day-group">
+            <div class="day-head"><h2>@(day.Key == Display.LocalNow.Date ? "Today" : day.Key == Display.LocalNow.Date.AddDays(1) ? "Tomorrow" : day.Key.ToString("dddd", CultureInfo.InvariantCulture))</h2><span>@day.Key.ToString("dd MMMM yyyy", CultureInfo.InvariantCulture) · @day.Count() show(s)</span></div>
+            <div class="table-scroll">
+                <table>
+                    <thead><tr><th>Movie</th><th>Time</th><th>Hall</th><th>Seats</th><th class="number">Price</th><th>Booking</th><th class="number">Manage</th></tr></thead>
+                    <tbody>
+                    @foreach (var s in day)
+                    {
+                        var total = s.Hall.Seats.Count;
+                        var sold = s.Reservations.Count(r => r.IsActive);
+                        var available = total - sold;
+                        var past = s.StartsAtUtc <= now;
+                        var pct = total == 0 ? 0 : sold * 100 / total;
+                        <tr class="@(past ? "is-past" : "")">
+                            <td><div class="movie-cell"><span class="thumb"><partial name="_Poster" model="s.Movie" /></span><span><strong>@s.Movie.Title</strong><span class="cell-sub">@s.Movie.Genre · @Display.Runtime(s.DurationMinutes)</span></span></div></td>
+                            <td class="nowrap"><strong>@Display.Time(s.StartsAtUtc)</strong><span class="cell-sub">ends @Display.Time(s.EndsAtUtc)</span></td>
+                            <td class="nowrap"><span class="badge badge-outline">@s.Hall.Name</span></td>
+                            <td><div class="occupancy"><span class="cell-sub" style="margin:0">@available / @total free</span><div class="occupancy-bar"><span style="width:@(pct)%"></span></div></div></td>
+                            <td class="number strong">@Display.Money(s.TicketPrice)</td>
+                            <td>
+                                @if (past) { <span class="badge badge-gray">Closed</span> }
+                                else if (available == 0) { <span class="badge badge-red">Sold out</span> }
+                                else { <a class="btn btn-small btn-primary" asp-controller="Bookings" asp-action="Create" asp-route-showtimeId="@s.Id">Book seats</a> }
+                            </td>
+                            <td class="number nowrap">@if (!past) { <a class="text-link" asp-action="Edit" asp-route-id="@s.Id">Edit</a><span class="action-divider">/</span> }<a class="subtle-link" asp-action="Delete" asp-route-id="@s.Id">Delete</a></td>
+                        </tr>
+                    }
+                    </tbody>
+                </table>
+            </div>
+        </section>
+    }
+}

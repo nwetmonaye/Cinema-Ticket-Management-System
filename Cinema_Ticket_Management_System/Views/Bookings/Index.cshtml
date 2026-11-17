@@ -1,0 +1,23 @@
+@model BookingsViewModel
+@{ ViewData["Title"] = "Bookings"; }
+<div class="page-head">
+    <div><span class="eyebrow">Box office</span><h1>Bookings</h1><p>Newest first · search by customer, movie or reference</p></div>
+    <div class="page-actions"><a class="btn btn-primary" asp-controller="Showtimes" asp-action="Index"><svg class="icon"><use href="#i-plus"/></svg>New booking</a></div>
+</div>
+<section class="panel">
+    <form method="get" class="filter-bar">
+        <div class="search-field"><svg class="icon"><use href="#i-search"/></svg><input name="search" value="@Model.Search" placeholder="Search customer, movie or reference (CD-00012)…" aria-label="Search bookings" /></div>
+        <select name="status" aria-label="Filter by status"><option value="">All statuses</option><option value="Confirmed" selected="@(Model.Status == "Confirmed")">Confirmed</option><option value="Cancelled" selected="@(Model.Status == "Cancelled")">Cancelled</option></select>
+        <button class="btn btn-ghost" type="submit">Filter</button>
+        <a class="text-link" asp-action="Index">Reset</a>
+    </form>
+    <div class="table-caption"><strong>@Model.Bookings.Count result(s)</strong>@if (Model.Bookings.Count == 200) { <span>Showing the latest 200. Search to find older bookings.</span> }</div>
+    @if (Model.Bookings.Count == 0 && (!string.IsNullOrEmpty(Model.Search) || !string.IsNullOrEmpty(Model.Status)))
+    {
+        <div class="empty-state"><h2>No matching bookings</h2><p>Try another search or status.</p></div>
+    }
+    else
+    {
+        <partial name="_BookingsTable" model="Model.Bookings" />
+    }
+</section>

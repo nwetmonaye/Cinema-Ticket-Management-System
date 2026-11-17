@@ -1,0 +1,142 @@
+@model DashboardViewModel
+@{
+    ViewData["Title"] = "Dashboard";
+    var maximum = Math.Max(1m, Model.Week.Max(d => d.Revenue));
+    var now = DateTime.UtcNow;
+}
+<div class="dash-grid">
+    <div class="dash-main">
+        @if (Model.Featured is { } f)
+        {
+            <section class="hero" aria-label="Featured movie">
+                <div class="hero-bg" style="--hero-img:url('@f.PosterUrl')"></div>
+                <div>
+                    <span class="hero-tag"><span class="live-dot"></span>NOW SHOWING</span>
+                    <h1>@f.Title</h1>
+                    <div class="hero-meta"><span>@f.Genre</span><span>@Display.Runtime(f.DurationMinutes)</span><span>@Model.FeaturedShows.Count upcoming shows</span></div>
+                    <p>@f.Description</p>
+                    <div class="hero-times">
+                        @foreach (var s in Model.FeaturedShows)
+                        {
+                            <a class="time-chip" asp-controller="Bookings" asp-action="Create" asp-route-showtimeId="@s.Id" aria-label="Book @f.Title at @Display.Date(s.StartsAtUtc)">@Display.Time(s.StartsAtUtc)<small>@Display.Day(s.StartsAtUtc) · @s.Hall.Name</small></a>
+                        }
+                    </div>
+                    <div class="hero-actions">
+                        <a class="btn btn-primary" asp-controller="Bookings" asp-action="Create" asp-route-showtimeId="@Model.FeaturedShows[0].Id"><svg class="icon"><use href="#i-ticket"/></svg>Book now</a>
+                        <a class="btn btn-ghost" asp-controller="Showtimes" asp-action="Index" asp-route-movieId="@f.Id">All showtimes</a>
+                    </div>
+                </div>
+                <div class="hero-poster"><partial name="_Poster" model="f" /></div>
+            </section>
+        }
+
+        <section class="stats" aria-label="Today at a glance">
+            <article class="stat"><div class="stat-label">Revenue today<svg class="icon"><use href="#i-trend"/></svg></div><div class="stat-value">@Display.Money(Model.TodayRevenue)</div><div class="stat-foot">Confirmed bookings made today</div></article>
+            <article class="stat"><div class="stat-label">Tickets sold today<svg class="icon"><use href="#i-ticket"/></svg></div><div class="stat-value">@Model.TodayTickets</div><div class="stat-foot">Seats across new bookings</div></article>
+            <article class="stat"><div class="stat-label">Upcoming shows<svg class="icon"><use href="#i-calendar"/></svg></div><div class="stat-value">@Model.UpcomingCount</div><div class="stat-foot">Open for booking</div></article>
+            <article class="stat"><div class="stat-label">Now showing<svg class="icon"><use href="#i-film"/></svg></div><div class="stat-value">@Model.MovieCount</div><div class="stat-foot">Movies in their run today</div></article>
+        </section>
+
+        <section>
+            <div class="section-head" style="margin-top:4px"><h2>Now Showing</h2><a class="text-link" asp-controller="Movies" asp-action="Index">See all</a></div>
+            <div class="movie-row">
+                @foreach (var item in Model.NowShowing)
+                {
+                    <article class="movie-card">
+                        <partial name="_Poster" model="item.Movie" />
+                        <div class="movie-card-body">
+                            <h3 title="@item.Movie.Title">@item.Movie.Title</h3>
+                            <div class="movie-meta">@item.Movie.Genre · @Display.Runtime(item.Movie.DurationMinutes)</div>
+                            @if (item.NextShow is { } next)
+                            {
+                                <div class="movie-next">Next: <strong>@Display.Time(next.StartsAtUtc)</strong> · @Display.Day(next.StartsAtUtc)</div>
+                                <a class="btn btn-primary btn-small btn-full" asp-controller="Bookings" asp-action="Create" asp-route-showtimeId="@next.Id">Book now</a>
+                            }
+                            else
+                            {
+                                <div class="movie-next">No upcoming shows</div>
+                                <a class="btn btn-ghost btn-small btn-full" asp-controller="Showtimes" asp-action="Create" asp-route-movieId="@item.Movie.Id">Schedule</a>
+                            }
+                        </div>
+                    </article>
+                }
+            </div>
+            @if (Model.NowShowing.Count == 0)
+            {
+                <div class="panel empty-state"><svg class="icon"><use href="#i-film"/></svg><h3>No movies yet</h3><p>Run Database/CinemaDb.sql or add a movie.</p><a class="btn btn-primary" asp-controller="Movies" asp-action="Create">Add movie</a></div>
+            }
+        </section>
+
+        <div class="two-col">
+            <section class="panel">
+                <div class="panel-head"><div><h2>Box office · 7 days</h2><p>Confirmed booking revenue by day</p></div></div>
+                <div class="chart-total">@Display.Money(Model.Week.Sum(d => d.Revenue))<span>this week</span></div>
+                <div class="bar-chart" role="img" aria-label="Daily confirmed booking revenue for the last 7 days">
+                    @foreach (var day in Model.Week)
+                    {
+                        var height = (day.Revenue / maximum * 100m).ToString("0.##", CultureInfo.InvariantCulture);
+                        <div class="bar-col"><span class="bar-amount">@((day.Revenue / 1000000m).ToString("0.0", CultureInfo.InvariantCulture))M</span><div class="bar-track"><div class="bar @(day.Day.Date == Display.LocalNow.Date ? "bar-today" : "")" style="height:@(height)%"></div></div><span class="bar-day">@day.Day.ToString("ddd", CultureInfo.InvariantCulture)</span></div>
+                    }
+                </div>
+            </section>
+            <section class="panel">
+                <div class="panel-head"><div><h2>Latest bookings</h2><p>Fresh from the box office</p></div><a class="text-link" asp-controller="Bookings" asp-action="Index">View all</a></div>
+                <div class="show-list">
+                    @foreach (var b in Model.RecentBookings)
+                    {
+                        <a class="show-item" asp-controller="Bookings" asp-action="Details" asp-route-id="@b.Id">
+                            <span class="avatar" aria-hidden="true">@string.Concat(b.CustomerName.Split(' ', StringSplitOptions.RemoveEmptyEntries).TakeLast(2).Select(w => w[0]))</span>
+                            <span class="show-info"><strong>@b.CustomerName</strong><span class="show-meta">@b.MovieTitle · @b.Seats.Count seat(s)</span></span>
+                            <span class="show-side"><strong>@Display.Money(b.Total)</strong><span class="badge @(b.Status == BookingStatus.Confirmed ? "badge-green" : "badge-gray")">@b.Status</span></span>
+                        </a>
+                    }
+                </div>
+            </section>
+        </div>
+    </div>
+
+    <aside class="dash-side">
+        @if (Model.Preview is { } p)
+        {
+            var taken = p.Reservations.Select(r => r.SeatId).ToHashSet();
+            var free = p.Hall.Seats.Count - taken.Count;
+            <section class="panel">
+                <div class="preview-head">
+                    <div><span class="eyebrow">Next show</span><h2>@p.Movie.Title</h2><span class="badge badge-amber">@free of @p.Hall.Seats.Count seats free</span></div>
+                    <div class="preview-time"><strong>@Display.Time(p.StartsAtUtc)</strong><small>@Display.Day(p.StartsAtUtc) · @p.Hall.Name</small></div>
+                </div>
+                <div class="screen"><span>SCREEN</span></div>
+                <div class="seatmap mini" aria-label="Seat availability for the next show">
+                    @foreach (var row in p.Hall.Seats.GroupBy(s => s.Row).OrderBy(g => g.Key))
+                    {
+                        var perRow = row.Count();
+                        <div class="seat-row"><span class="row-label">@row.Key</span>@foreach (var seat in row.OrderBy(s => s.Number)) { <span class="seat @(taken.Contains(seat.Id) ? "taken" : "") @(seat.Number == perRow / 2 + 1 ? "aisle" : "")" title="@seat.Label"></span> }</div>
+                    }
+                </div>
+                <div class="seat-legend"><span><i class="legend-seat"></i>Available</span><span><i class="legend-seat taken"></i>Booked</span></div>
+                <a class="btn btn-primary btn-full" style="margin-top:18px" asp-controller="Bookings" asp-action="Create" asp-route-showtimeId="@p.Id">Choose seats</a>
+            </section>
+        }
+        <section class="panel">
+            <div class="panel-head"><div><h2>Today's Shows</h2><p>@Display.LocalNow.ToString("dddd, dd MMMM", CultureInfo.InvariantCulture)</p></div><a class="text-link" asp-controller="Showtimes" asp-action="Index">All</a></div>
+            <div class="show-list">
+                @foreach (var s in Model.TodayShows)
+                {
+                    var playing = s.StartsAtUtc <= now;
+                    var free = s.Hall.Seats.Count - s.Reservations.Count;
+                    <a class="show-item" asp-controller="@(playing ? "Showtimes" : "Bookings")" asp-action="@(playing ? "Index" : "Create")" asp-route-showtimeId="@(playing ? (int?)null : s.Id)">
+                        <span class="thumb"><partial name="_Poster" model="s.Movie" /></span>
+                        <span class="show-info"><strong>@s.Movie.Title</strong><span class="show-meta">@Display.Time(s.StartsAtUtc) – @Display.Time(s.EndsAtUtc) · @s.Hall.Name</span></span>
+                        <span class="show-side">
+                            @if (playing) { <span class="badge badge-red"><span class="badge-dot"></span>Playing</span> }
+                            else if (free == 0) { <span class="badge badge-gray">Sold out</span> }
+                            else { <span class="badge badge-outline">@free free</span> }
+                            <span class="show-meta">@Display.Money(s.TicketPrice)</span>
+                        </span>
+                    </a>
+                }
+                @if (Model.TodayShows.Count == 0) { <p class="muted">No more shows today.</p> }
+            </div>
+        </section>
+    </aside>
+</div>

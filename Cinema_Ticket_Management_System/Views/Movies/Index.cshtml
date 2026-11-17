@@ -1,0 +1,62 @@
+@model MovieListViewModel
+@{
+    ViewData["Title"] = "Movies";
+    var now = DateTime.UtcNow;
+    var heading = Model.Show switch { "now" => "Now showing", "soon" => "Coming soon", "ended" => "Ended", "all" => "All movies", _ => "Movies" };
+    (string Value, string Label)[] tabs = [("current", "Now & coming soon"), ("now", "Now showing"), ("soon", "Coming soon"), ("ended", $"Ended ({Model.EndedCount})"), ("all", "All")];
+}
+<div class="page-head">
+    <div><span class="eyebrow">Catalogue</span><h1>@(string.IsNullOrEmpty(Model.Genre) ? heading : $"{heading} · {Model.Genre}")</h1><p>@Model.Movies.Count movie(s)@(string.IsNullOrEmpty(Model.Search) ? "" : $" matching “{Model.Search}”")@(Model.Show == "current" && Model.EndedCount > 0 ? $" · {Model.EndedCount} ended movie(s) hidden" : "")</p></div>
+    <div class="page-actions"><a class="btn btn-primary" asp-action="Create"><svg class="icon"><use href="#i-plus"/></svg>Add movie</a></div>
+</div>
+<nav class="run-tabs" aria-label="Filter by showing period">
+    @foreach (var (value, label) in tabs)
+    {
+        <a class="chip @(Model.Show == value ? "active" : "")" asp-action="Index" asp-route-show="@(value == "current" ? null : value)" asp-route-genre="@Model.Genre" asp-route-search="@Model.Search" aria-current="@(Model.Show == value ? "page" : null)">@label</a>
+    }
+</nav>
+<form method="get" class="filter-bar" style="margin-bottom:24px">
+    <input type="hidden" name="show" value="@(Model.Show == "current" ? "" : Model.Show)" />
+    <div class="search-field"><svg class="icon"><use href="#i-search"/></svg><input name="search" value="@Model.Search" placeholder="Search movie titles…" aria-label="Search movies" /></div>
+    <select name="genre" aria-label="Filter by genre"><option value="">All genres</option>@foreach (var g in Model.Genres) { <option value="@g" selected="@(g == Model.Genre)">@g</option> }</select>
+    <button class="btn btn-ghost" type="submit">Filter</button>
+    <a class="text-link" asp-action="Index">Reset</a>
+</form>
+<div class="movie-row">
+    @foreach (var m in Model.Movies)
+    {
+        var upcoming = m.Showtimes.Count(s => s.StartsAtUtc > now);
+        var status = m.StatusOn(Model.Today);
+        var daysLeft = m.ShowingEnd.DayNumber - Model.Today.DayNumber;
+        <article class="movie-card @(status == RunStatus.Ended ? "is-ended" : "")">
+            <div class="poster-wrap">
+                <partial name="_Poster" model="m" />
+                @switch (status)
+                {
+                    case RunStatus.ComingSoon: <span class="run-badge soon">Coming @m.ShowingStart.ToString("dd MMM", CultureInfo.InvariantCulture)</span> break;
+                    case RunStatus.Ended: <span class="run-badge ended">Ended</span> break;
+                    default: if (daysLeft <= 7) { <span class="run-badge last">@(daysLeft == 0 ? "Last day" : $"Last {daysLeft + 1} days")</span> } break;
+                }
+            </div>
+            <div class="movie-card-body">
+                <h3 title="@m.Title">@m.Title</h3>
+                <div class="movie-meta">@m.Genre · @Display.Runtime(m.DurationMinutes)</div>
+                <div class="movie-run" title="Showing period">@m.ShowingStart.ToString("dd MMM", CultureInfo.InvariantCulture) – @m.ShowingEnd.ToString("dd MMM yyyy", CultureInfo.InvariantCulture)</div>
+                <div class="movie-next"><strong>@upcoming</strong> upcoming show(s)</div>
+                @if (status == RunStatus.Ended)
+                {
+                    <a class="btn btn-ghost btn-small btn-full" asp-action="Edit" asp-route-id="@m.Id">Extend run</a>
+                }
+                else
+                {
+                    <a class="btn btn-primary btn-small btn-full" asp-controller="Showtimes" asp-action="Index" asp-route-movieId="@m.Id">Showtimes</a>
+                }
+                <div style="display:flex;justify-content:space-between;margin-top:10px;font-size:12px"><a class="text-link" asp-action="Edit" asp-route-id="@m.Id">Edit</a><a class="subtle-link" asp-action="Delete" asp-route-id="@m.Id">Delete</a></div>
+            </div>
+        </article>
+    }
+</div>
+@if (Model.Movies.Count == 0)
+{
+    <section class="panel empty-state"><svg class="icon"><use href="#i-film"/></svg><h2>No movies here</h2><p>Try another filter or search, or add a new title.</p><a class="btn btn-primary" asp-action="Create">Add movie</a></section>
+}

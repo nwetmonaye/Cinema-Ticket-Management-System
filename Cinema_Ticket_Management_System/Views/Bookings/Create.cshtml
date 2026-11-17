@@ -1,0 +1,66 @@
+@model BookingForm
+@{
+    ViewData["Title"] = "Choose seats";
+    var show = Model.Showtime;
+    var closed = show.StartsAtUtc <= DateTime.UtcNow;
+    var available = Model.Seats.Count - Model.TakenSeatIds.Count;
+}
+<a class="back-link" asp-controller="Showtimes" asp-action="Index">← Back to showtimes</a>
+<div class="page-head">
+    <div><span class="eyebrow">Book tickets</span><h1>Choose your seats</h1><p>@show.Movie.Title · @Display.Date(show.StartsAtUtc) · @show.Hall.Name</p></div>
+    <span class="badge badge-amber" style="font-size:12px;padding:7px 14px">@available of @Model.Seats.Count seats available</span>
+</div>
+@if (closed) { <div class="notice error" role="alert">This showing has already started. Booking is closed.</div> }
+<form asp-action="Create" method="post" id="booking-form" data-price-vnd="@((long)show.TicketPrice)">
+    <input asp-for="ShowtimeId" type="hidden" /><input asp-for="Version" type="hidden" />
+    <div asp-validation-summary="All" class="validation-summary" role="alert"></div>
+    <div class="booking-layout">
+        <section class="panel">
+            <div class="panel-head"><div><h2>@show.Hall.Name</h2><p>Up to 8 seats per booking</p></div></div>
+            <div class="screen"><span>SCREEN</span></div>
+            <div class="seatmap" role="group" aria-label="Select seats">
+                @foreach (var row in Model.Seats.GroupBy(s => s.Row))
+                {
+                    var perRow = row.Count();
+                    <div class="seat-row">
+                        <span class="row-label">@row.Key</span>
+                        @foreach (var seat in row)
+                        {
+                            var taken = Model.TakenSeatIds.Contains(seat.Id);
+                            <label class="seat-option big @(seat.Number == perRow / 2 + 1 ? "aisle" : "")" title="@(taken ? $"{seat.Label} · booked" : seat.Label)">
+                                <input type="checkbox" name="SeatIds" value="@seat.Id" checked="@Model.SeatIds.Contains(seat.Id)" disabled="@(taken || closed)" data-seat-label="@seat.Label" aria-label="Seat @seat.Label@(taken ? ", booked" : ", available")" />
+                                <span class="seat">@seat.Number</span>
+                            </label>
+                        }
+                        <span class="row-label">@row.Key</span>
+                    </div>
+                }
+            </div>
+            <div class="seat-legend"><span><i class="legend-seat"></i>Available</span><span><i class="legend-seat selected"></i>Selected</span><span><i class="legend-seat taken"></i>Booked</span></div>
+            <p class="seat-instruction muted" id="seat-announcement" role="status" aria-live="polite">Select seats on the map.</p>
+        </section>
+
+        <aside class="panel booking-summary">
+            <div class="summary-film">
+                <span class="thumb"><partial name="_Poster" model="show.Movie" /></span>
+                <div>
+                    <span class="eyebrow" style="margin-bottom:2px">@show.Movie.Genre</span>
+                    <h2>@show.Movie.Title</h2>
+                    <div class="summary-info">
+                        <span><svg class="icon"><use href="#i-calendar"/></svg>@Display.Date(show.StartsAtUtc)</span>
+                        <span><svg class="icon"><use href="#i-clock"/></svg>@Display.Runtime(show.DurationMinutes)</span>
+                        <span><svg class="icon"><use href="#i-seat"/></svg>@show.Hall.Name · @Display.Money(show.TicketPrice)/seat</span>
+                    </div>
+                </div>
+            </div>
+            <div class="summary-body">
+                <div class="field"><label asp-for="CustomerName">Customer name <span>*</span></label><input asp-for="CustomerName" maxlength="80" required placeholder="Full name" autocomplete="off" /><span asp-validation-for="CustomerName" class="field-error"></span></div>
+                <div class="selected-label">SELECTED SEATS <span id="seat-count">@Model.SeatIds.Count selected</span></div>
+                <div id="selected-seats" class="selected-seats"><span class="muted">None yet</span></div>
+                <div class="summary-total"><span class="muted">Total</span><strong id="booking-total">@Display.Money(Model.SeatIds.Count * show.TicketPrice)</strong></div>
+                <button class="btn btn-primary btn-full" type="submit" disabled="@(closed || available == 0)">Confirm booking <svg class="icon"><use href="#i-arrow"/></svg></button>
+                <p class="summary-note" style="margin:12px 0 0">Prices in VND. Payment is taken at the counter. Availability is re-checked when you confirm.</p>
+            </div>
+        </aside>
+    </div>
+</form>

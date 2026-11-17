@@ -1,0 +1,31 @@
+@model MovieForm
+@{ var editing = Model.Id != 0; ViewData["Title"] = editing ? "Edit movie" : "Add movie"; }
+<a class="back-link" asp-action="Index">← Back to movies</a>
+<div class="page-head"><div><span class="eyebrow">Catalogue</span><h1>@(editing ? $"Edit {Model.Title}" : "Add a movie")</h1><p>Title, genre, running time, showing period, synopsis and poster.</p></div></div>
+<div class="form-layout">
+    <section class="panel">
+        <form asp-action="@(editing ? "Edit" : "Create")" asp-route-id="@(editing ? Model.Id : (int?)null)" method="post">
+            <input asp-for="Id" type="hidden" /><input asp-for="Version" type="hidden" />
+            <div asp-validation-summary="All" class="validation-summary" role="alert"></div>
+            <div class="field"><label asp-for="Title">Movie title <span>*</span></label><input asp-for="Title" maxlength="100" required placeholder="e.g. Dune: Part Two" /><span asp-validation-for="Title" class="field-error"></span></div>
+            <div class="form-row">
+                <div class="field"><label asp-for="Genre">Genre <span>*</span></label><input asp-for="Genre" maxlength="40" required placeholder="e.g. Sci-Fi" /><span asp-validation-for="Genre" class="field-error"></span></div>
+                <div class="field"><label asp-for="DurationMinutes">Running time (minutes) <span>*</span></label><input asp-for="DurationMinutes" type="number" min="30" max="300" step="1" required /><span asp-validation-for="DurationMinutes" class="field-error"></span></div>
+            </div>
+            <div class="form-row">
+                <div class="field"><label asp-for="ShowingStart">Showing from <span>*</span></label><input asp-for="ShowingStart" type="date" asp-format="{0:yyyy-MM-dd}" required data-run-start /><span asp-validation-for="ShowingStart" class="field-error"></span><span class="field-hint">First day it can be scheduled</span></div>
+                <div class="field"><label asp-for="ShowingEnd">Showing until <span>*</span></label><input asp-for="ShowingEnd" type="date" asp-format="{0:yyyy-MM-dd}" required data-run-end /><span asp-validation-for="ShowingEnd" class="field-error"></span><span class="field-hint">After this day it leaves the movie list</span></div>
+            </div>
+            <div class="field"><label asp-for="PosterUrl">Poster image URL</label><input asp-for="PosterUrl" type="url" maxlength="500" placeholder="https://…/poster.jpg" data-poster-input /><span asp-validation-for="PosterUrl" class="field-error"></span><span class="field-hint">Paste a link to the official poster (e.g. from Wikipedia). Leave empty for a title card.</span></div>
+            <div class="field"><label asp-for="Description">Synopsis</label><textarea asp-for="Description" maxlength="600" rows="4" placeholder="A short introduction to the story"></textarea><span asp-validation-for="Description" class="field-error"></span></div>
+            <div class="form-actions"><button class="btn btn-primary" type="submit">@(editing ? "Save changes" : "Add movie")</button><a class="btn btn-ghost" asp-action="Index">Cancel</a></div>
+        </form>
+    </section>
+    <aside class="help-card">
+        <span class="eyebrow">Poster preview</span>
+        <div class="poster-preview"><div class="poster @(string.IsNullOrWhiteSpace(Model.PosterUrl) ? "no-img" : "")" data-poster-preview><img src="@Model.PosterUrl" alt="Poster preview" referrerpolicy="no-referrer" style="@(string.IsNullOrWhiteSpace(Model.PosterUrl) ? "display:none" : "")" /><span class="poster-fallback"><small>Poster</small>No image</span></div></div>
+        <p>The running time is copied into each showing when it is scheduled, so editing it later does not move existing shows.</p>
+        <p>Existing tickets keep the movie title they were sold with.</p>
+        <p>When the <strong style="color:var(--text)">Showing until</strong> date has passed, the movie is hidden from the movie list and the dashboard. It is not deleted, so past tickets stay valid; find it under <em>Ended</em> on the movies page.</p>
+    </aside>
+</div>

@@ -1,0 +1,124 @@
+@model ShowtimeBatchForm
+@inject PricingService Pricing
+@{
+    ViewData["Title"] = "Add showings";
+    var today = Display.LocalNow.Date;
+    var days = Enumerable.Range(0, 28).Select(i => today.AddDays(i)).ToList();
+    var selected = Model.Dates.ToHashSet();
+    // Dates posted back that fall outside the 4-week grid are still shown as chips.
+    var extra = Model.Dates.Where(d => !days.Any(x => x.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture) == d)).Distinct().OrderBy(d => d).ToList();
+    var o = Pricing.Options;
+    var pricingJson = System.Text.Json.JsonSerializer.Serialize(new {
+        afternoonFrom = o.AfternoonFrom.ToString(@"hh\:mm"), eveningFrom = o.EveningFrom.ToString(@"hh\:mm"),
+        morning = o.Morning, afternoon = o.Afternoon, evening = o.Evening, imax = o.ImaxSurcharge
+    });
+    string Iso(DateTime d) => d.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
+}
+<a class="back-link" asp-action="Index">← Back to showtimes</a>
+<div class="page-head"><div><span class="eyebrow">Schedule</span><h1>Add showings</h1><p>Pick a movie and hall, then any number of dates and start times. Each start time has its own price.</p></div></div>
+<form asp-action="Create" method="post" id="batch-form" data-pricing="@pricingJson">
+<div class="form-layout">
+    <div style="display:flex;flex-direction:column;gap:20px;min-width:0">
+        <div asp-validation-summary="All" class="validation-summary" role="alert"></div>
+
+        <section class="panel">
+            <div class="panel-head"><div><h2>1 · Movie and hall</h2></div></div>
+            <div class="form-row">
+                <div class="field"><label asp-for="MovieId">Movie <span>*</span></label>
+                    <select asp-for="MovieId" required><option value="">Choose a movie</option>@foreach (var m in Model.Movies) { <option value="@m.Id" data-duration="@m.DurationMinutes" data-start="@m.ShowingStart.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture)" data-end="@m.ShowingEnd.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture)">@m.Title (@Display.Runtime(m.DurationMinutes))@(m.ShowingStart > DateOnly.FromDateTime(today) ? " · from " + m.ShowingStart.ToString("dd MMM", CultureInfo.InvariantCulture) : "")</option> }</select>
+                    <span asp-validation-for="MovieId" class="field-error"></span></div>
+                <div class="field"><label asp-for="HallId">Cinema hall <span>*</span></label>
+                    <select asp-for="HallId" required><option value="">Choose a hall</option>@foreach (var h in Model.Halls) { <option value="@h.Id" data-imax="@(PricingService.IsImax(h) ? "1" : "0")">@h.Name · @h.Seats.Count seats</option> }</select>
+                    <span asp-validation-for="HallId" class="field-error"></span></div>
+            </div>
+        </section>
+
+        <section class="panel">
+            <div class="panel-head">
+                <div><h2>2 · Dates</h2><p><span id="date-count">@Model.Dates.Count</span> selected</p></div>
+                <div class="quick-actions">
+                    <button type="button" class="btn btn-ghost btn-small" data-dates="week">Next 7 days</button>
+                    <button type="button" class="btn btn-ghost btn-small" data-dates="weekdays">Weekdays</button>
+                    <button type="button" class="btn btn-ghost btn-small" data-dates="weekends">Weekends</button>
+                    <button type="button" class="btn btn-ghost btn-small" data-dates="clear">Clear</button>
+                </div>
+            </div>
+            <p class="run-note" id="run-note"></p>
+            <div class="day-grid" id="day-grid">
+                @foreach (var d in days)
+                {
+                    var iso = Iso(d);
+                    <label class="day-chip @(d.DayOfWeek is DayOfWeek.Saturday or DayOfWeek.Sunday ? "weekend" : "")">
+                        <input type="checkbox" name="Dates" value="@iso" checked="@selected.Contains(iso)" data-dow="@((int)d.DayOfWeek)" data-offset="@((d - today).Days)" />
+                        <span><small>@(d == today ? "Today" : d.ToString("ddd", CultureInfo.InvariantCulture))</small><strong>@d.Day</strong><small>@d.ToString("MMM", CultureInfo.InvariantCulture)</small></span>
+                    </label>
+                }
+                @foreach (var iso in extra)
+                {
+                    var d = DateTime.ParseExact(iso, "yyyy-MM-dd", CultureInfo.InvariantCulture);
+                    <label class="day-chip"><input type="checkbox" name="Dates" value="@iso" checked data-dow="@((int)d.DayOfWeek)" data-offset="99" /><span><small>@d.ToString("ddd", CultureInfo.InvariantCulture)</small><strong>@d.Day</strong><small>@d.ToString("MMM", CultureInfo.InvariantCulture)</small></span></label>
+                }
+            </div>
+            <div class="add-date"><label for="other-date" class="field-hint">Later date:</label><input type="date" id="other-date" min="@Iso(today)" /><button type="button" class="btn btn-ghost btn-small" id="add-date">Add date</button></div>
+        </section>
+
+        <section class="panel">
+            <div class="panel-head">
+                <div><h2>3 · Start times and prices</h2><p>Prices are suggested from the time of day and hall. Type to override.</p></div>
+                <div class="quick-actions">
+                    <button type="button" class="btn btn-ghost btn-small" id="fill-day" title="Back-to-back shows from 09:30 to 22:30 using the movie's running time">Fill the day</button>
+                    <button type="button" class="btn btn-ghost btn-small" id="reset-prices">Suggested prices</button>
+                </div>
+            </div>
+            <div class="slot-head" aria-hidden="true"><span>Start</span><span>Period</span><span>Ends</span><span>Price (VND)</span><span></span></div>
+            <div id="slots">
+                @for (var i = 0; i < Model.Times.Count; i++)
+                {
+                    <div class="slot-row">
+                        <input type="time" name="Times" value="@Model.Times[i]" required aria-label="Start time" />
+                        <span class="badge badge-outline slot-tier"></span>
+                        <span class="slot-end muted"></span>
+                        <input type="number" name="Prices" value="@(i < Model.Prices.Count ? ((long)Model.Prices[i]).ToString(CultureInfo.InvariantCulture) : "")" min="1" max="10000000" step="1" inputmode="numeric" required aria-label="Ticket price" />
+                        <button type="button" class="icon-link slot-remove" aria-label="Remove this time">✕</button>
+                    </div>
+                }
+            </div>
+            <template id="slot-template">
+                <div class="slot-row">
+                    <input type="time" name="Times" required aria-label="Start time" />
+                    <span class="badge badge-outline slot-tier"></span>
+                    <span class="slot-end muted"></span>
+                    <input type="number" name="Prices" min="1" max="10000000" step="1" inputmode="numeric" required aria-label="Ticket price" />
+                    <button type="button" class="icon-link slot-remove" aria-label="Remove this time">✕</button>
+                </div>
+            </template>
+            <button type="button" class="btn btn-ghost btn-small" id="add-slot" style="margin-top:12px"><svg class="icon"><use href="#i-plus"/></svg>Add time</button>
+        </section>
+
+        <section class="panel batch-submit">
+            <label class="check"><input asp-for="SkipConflicts" type="checkbox" /> Skip slots that overlap existing shows or are in the past (save the rest)</label>
+            <div class="batch-total"><span id="batch-summary">—</span>
+                <div class="form-actions" style="margin:0"><a class="btn btn-ghost" asp-action="Index">Cancel</a><button class="btn btn-primary" type="submit" id="batch-submit">Add showings</button></div>
+            </div>
+        </section>
+    </div>
+
+    <aside class="help-card" style="position:sticky;top:92px">
+        <span class="eyebrow">Ticket pricing</span>
+        <table class="tier-table">
+            <thead><tr><th>Period</th><th class="number">Standard</th><th class="number">IMAX</th></tr></thead>
+            <tbody>
+            @foreach (var t in Pricing.Tiers())
+            {
+                <tr><td><strong>@t.Name</strong><span class="cell-sub">@t.Range</span></td><td class="number">@Display.Money(t.Standard)</td><td class="number">@Display.Money(t.Imax)</td></tr>
+            }
+            </tbody>
+        </table>
+        <p style="margin-top:14px">These are suggestions. You can type any price for a time slot. Change the defaults under <code>Cinema:Pricing</code> in <code>appsettings.json</code>.</p>
+        <span class="eyebrow" style="margin-top:6px">Scheduling rules</span>
+        <p>Shows in the same hall cannot overlap. Each show lasts the movie's running time.</p>
+        <p>If any slot conflicts, nothing is saved unless you tick “Skip slots that overlap…”.</p>
+    </aside>
+</div>
+</form>
+@section Scripts { <script src="~/js/showtimes-create.js" asp-append-version="true" defer></script> }

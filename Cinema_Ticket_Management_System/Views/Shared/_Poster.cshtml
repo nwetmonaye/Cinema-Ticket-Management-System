@@ -1,0 +1,9 @@
+@model Movie
+@* Real poster when PosterUrl is set; falls back to a styled title card if missing or the image fails to load. *@
+<div class="poster @(string.IsNullOrWhiteSpace(Model.PosterUrl) ? "no-img" : "")">
+    @if (!string.IsNullOrWhiteSpace(Model.PosterUrl))
+    {
+        <img src="@Model.PosterUrl" alt="@Model.Title poster" loading="lazy" referrerpolicy="no-referrer" onerror="this.parentElement.classList.add('no-img');this.remove()" />
+    }
+    <span class="poster-fallback"><small>@Model.Genre</small>@Model.Title</span>
+</div>

@@ -1,0 +1,31 @@
+@model ShowtimeForm
+@{ var editing = Model.Id != 0; ViewData["Title"] = editing ? "Edit showing" : "Add showing"; }
+<a class="back-link" asp-action="Index">← Back to showtimes</a>
+<div class="page-head"><div><span class="eyebrow">Schedule</span><h1>@(editing ? "Edit showing" : "Add a showing")</h1><p>Choose the movie, hall, start time and ticket price.</p></div></div>
+<div class="form-layout">
+    <section class="panel">
+        <form asp-action="@(editing ? "Edit" : "Create")" asp-route-id="@(editing ? Model.Id : (int?)null)" method="post">
+            <input asp-for="Id" type="hidden" /><input asp-for="Version" type="hidden" />
+            <div asp-validation-summary="All" class="validation-summary" role="alert"></div>
+            @if (Model.HasBookings)
+            {
+                <div class="notice info">This showing has booking history. Only the ticket price can change; movie, hall and start time are fixed.</div>
+                <input name="MovieId" type="hidden" value="@Model.MovieId" /><input name="HallId" type="hidden" value="@Model.HallId" />
+            }
+            <div class="field"><label asp-for="MovieId">Movie <span>*</span></label><select asp-for="MovieId" disabled="@Model.HasBookings" required><option value="">Choose a movie</option>@foreach (var m in Model.Movies) { <option value="@m.Id">@m.Title (@Display.Runtime(m.DurationMinutes))</option> }</select><span asp-validation-for="MovieId" class="field-error"></span></div>
+            <div class="field"><label asp-for="HallId">Cinema hall <span>*</span></label><select asp-for="HallId" disabled="@Model.HasBookings" required><option value="">Choose a hall</option>@foreach (var h in Model.Halls) { <option value="@h.Id">@h.Name · @h.Seats.Count seats</option> }</select><span asp-validation-for="HallId" class="field-error"></span></div>
+            <div class="form-row">
+                <div class="field"><label asp-for="StartsAtLocal">Start date and time <span>*</span></label><input asp-for="StartsAtLocal" asp-format="{0:yyyy-MM-ddTHH:mm}" type="datetime-local" step="60" readonly="@Model.HasBookings" required /><span asp-validation-for="StartsAtLocal" class="field-error"></span><span class="field-hint">Cinema time: @Display.Zone.Id</span></div>
+                <div class="field"><label asp-for="TicketPrice">Ticket price (VND) <span>*</span></label><input asp-for="TicketPrice" type="number" min="1" max="10000000" step="1" inputmode="numeric" required /><span asp-validation-for="TicketPrice" class="field-error"></span></div>
+            </div>
+            <div class="form-actions"><button class="btn btn-primary" type="submit">@(editing ? "Save changes" : "Add showing")</button><a class="btn btn-ghost" asp-action="Index">Cancel</a></div>
+        </form>
+    </section>
+    <aside class="help-card">
+        <span class="eyebrow">Scheduling rules</span>
+        <p>Showings in the same hall cannot overlap. The next show can start as soon as the previous one ends.</p>
+        <p>Each showing has its own seat map, so seat A5 at 16:00 is separate from A5 at 19:00.</p>
+        <p>Changing the price does not affect tickets already sold.</p>
+        <a class="text-link" asp-controller="Movies" asp-action="Create">Add a movie ↗</a>
+    </aside>
+</div>

@@ -1,0 +1,27 @@
+@model List<Booking>
+@if (Model.Count == 0)
+{
+    <div class="empty-state"><svg class="icon"><use href="#i-ticket"/></svg><h3>No bookings yet</h3><p>Choose a showing to sell the first ticket.</p><a class="btn btn-primary" asp-controller="Showtimes" asp-action="Index">Browse showtimes</a></div>
+}
+else
+{
+    <div class="table-scroll">
+        <table>
+            <thead><tr><th>Reference</th><th>Movie & show</th><th>Customer</th><th>Seats</th><th>Status</th><th class="number">Total</th><th><span class="sr-only">Details</span></th></tr></thead>
+            <tbody>
+            @foreach (var b in Model)
+            {
+                <tr>
+                    <td><a class="strong text-link" asp-controller="Bookings" asp-action="Details" asp-route-id="@b.Id">@b.Reference</a><span class="cell-sub">@Display.Day(b.CreatedAtUtc)</span></td>
+                    <td><strong>@b.MovieTitle</strong><span class="cell-sub">@Display.Date(b.StartsAtUtc) · @b.HallName</span></td>
+                    <td>@b.CustomerName</td>
+                    <td class="nowrap">@string.Join(", ", b.Seats.OrderBy(s => s.SeatLabel).Select(s => s.SeatLabel))</td>
+                    <td><span class="badge @(b.Status == BookingStatus.Confirmed ? "badge-green" : "badge-gray")"><span class="badge-dot"></span>@b.Status</span></td>
+                    <td class="number strong">@Display.Money(b.Total)</td>
+                    <td><a class="icon-link" asp-controller="Bookings" asp-action="Details" asp-route-id="@b.Id" aria-label="View booking @b.Reference"><svg class="icon"><use href="#i-arrow"/></svg></a></td>
+                </tr>
+            }
+            </tbody>
+        </table>
+    </div>
+}
